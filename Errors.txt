@@ -1,0 +1,37 @@
+"""
+Code for Propagation of Error
+"""
+xdata_er = np.std(xdiff_corrected**2)
+ydata_er = np.std(ydiff_corrected**2)
+
+err_x_sq = muldivprop(np.average(xdiff_corrected), np.average(xdiff_corrected), xdata_er, xdata_er, np.average(xdiff_corrected)**2)
+err_y_sq = muldivprop(np.average(ydiff_corrected), np.average(ydiff_corrected), ydata_er, ydata_er, np.average(ydiff_corrected)**2)
+
+err_radius = 1e-10 #0.1 um
+err_visc = 0.005 #g/m*s
+err_temp = 0.5 #k
+
+err_sumx = np.std(xdiff_corrected**2)
+err_sumy = np.std(ydiff_corrected**2)
+
+#error in the summ of the average, no error from division by scalar
+for c in range(2618):
+    err_sumx = adsubprop(err_sumx, xdata_er)
+    err_sumy = adsubprop(err_sumy, ydata_er)
+    
+err_avx = muldivprop(np.sum(xdiff_corrected), 2618, err_sumx, 0, np.average(xdiff_corrected))
+err_avy = muldivprop(np.sum(ydiff_corrected), 2618, err_sumy, 0, np.average(ydiff_corrected))
+
+err_x_sq = muldivprop(xdiff_corrected, xdiff_corrected, err_avx, err_avx, xdiff_corrected**2)
+err_y_sq = muldivprop(ydiff_corrected, ydiff_corrected, err_avy, err_avy, ydiff_corrected**2)
+
+err_msqdisp = adsubprop(err_avx, err_avy)
+
+err_gamma = muldivprop(eta, r_bee, err_visc, err_radius, eta*r_bee)
+
+#error in multiplying displacement by gamma;
+err_1 = muldivprop((meansquarex + meansquarey), gamma, err_msqdisp, err_gamma, einstein_k*4*t*T)
+#error in dividing displacement*drag/temperature
+err_2 = muldivprop((einstein_k*4*t*T), T, err_1, err_temp, einstein_k*4*t)
+err_3 = muldivprop((einstein_k*4*t), t, err_2, 0, einstein_k*4)
+err_4 = muldivprop((einstein_k*4), 4, err_3, 0, einstein_k)
