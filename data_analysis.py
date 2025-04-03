@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd 
 import os 
 import uncertainties 
+from uncertainties import umath
 import fit_black_box as bb 
 import math
 from scipy.optimize import curve_fit
@@ -12,10 +13,11 @@ from scipy.optimize import curve_fit
 r = uncertainties.ufloat(9.5e-7, 5e-8) # bead radius, divided by 2. 
 eta = uncertainties.ufloat(1.00, 0.05) # viscosity
 T = uncertainties.ufloat(296.5, 0.5) # temperature
-eta_adjusted = eta * math.pow(0.98, T.n - 293.15) # adjusted viscosity
+eta_adjusted = eta * umath.pow(0.98, T - 293.15) # adjusted viscosity
+print("Viscosity adjusted for temperature", eta_adjusted)
 gamma = 6 * math.pi * eta_adjusted * r # drag coefficient
 
-print(gamma)
+print("Calculated Stokes Radius", gamma)
 
 resolution = uncertainties.ufloat(0.1204e-6, 0.003e-6) # camera resolution
 # bead = uncertainties.ufloat(2.0e-6, 0.1e-6) # bead size
@@ -80,7 +82,8 @@ def linear(x, m, b):
     return m*x + b 
 
 
-def rayleigh(t, r, D):
+def rayleigh(r, D):
+    t = step_size.n
     return (r/(2*D*t))*np.exp(-(r**2)/(4*D*t))
 
 def maximum_likelihood(r):
@@ -178,14 +181,24 @@ popt = bb.plot_fit(functions[i], time, s_total, time_unc, s_unc, init_guess=init
 R-squared: 0.9627819273532291
 '''
 
+# DISTANCES HAS 119 DATA POINTS x 50 FILES = 5950 VALUES 
+
 counts, bin_edges = np.histogram(distances, bins=100, density=True)  # `density=True` normalizes the histogram
 bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2  # Compute bin centers
-print(bin_centers)
+print("Bin centers:", bin_centers)
+print("Counts:", counts)
+# why are the counts so large? they go up to 1M and have fractional values. there are 5950 values 
+# EDIT: they're like that as density=True adjusts them so that the integral is 1
 
 # Fit the Gaussian model to the histogram data
-popt, pcov = curve_fit(rayleigh, bin_centers, counts, p0=[5e-6, 2e-23])  # Initial guesses for [a, mu, sigma]
+popt, pcov = curve_fit(rayleigh, bin_centers, counts, p0=[2.45e-16])  # Initial guess for D, based on calculated viscosity, known T, and k = 1.38 * 10^-23
+puncert = np.sqrt(np.diagonal(pcov))
 print(f"Fitted parameters")
 print(popt)
+print(puncert)
+
+# says D = 4.968 * 10^-17. Not sure what pcov is, we need uncertainty values! 
+
 '''
 plt.hist(distances, bins=100, color='blue', edgecolor='black')  # Set bins to 20
 plt.xlabel('Value')
