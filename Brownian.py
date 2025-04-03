@@ -40,6 +40,7 @@ temp = 296.5
 temp_diff = 296.5 - 293.15 #difference from 20 degrees C to ambient temp
 eta = (1 - 0.02*(temp_diff))*0.1 #in pascal seconds, converted from centipoise
 gamma = 6*np.pi*eta*r_bee
+print(gamma)
 """
 Code to Clean and Compile Data
 """

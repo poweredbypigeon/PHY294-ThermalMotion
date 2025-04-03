@@ -10,14 +10,14 @@ from scipy.optimize import curve_fit
 
 
 # Constants
-r = uncertainties.ufloat(9.5e-7, 5e-8) # bead radius, divided by 2. 
-eta = uncertainties.ufloat(1.00, 0.05) # viscosity
-T = uncertainties.ufloat(296.5, 0.5) # temperature
+r = uncertainties.ufloat(9.5e-7, 5e-8) # bead radius, divided by 2.  [m]
+eta = uncertainties.ufloat(0.001, 0.00005) # viscosity, g/(cm*s) started out at 0.01 +/- 0.0005 P, and 1 Pa*s = 10 P. So 1 Pa*s = 1000 centipoise 
+T = uncertainties.ufloat(296.5, 0.5) # temperature [K]
 eta_adjusted = eta * umath.pow(0.98, T - 293.15) # adjusted viscosity
 print("Viscosity adjusted for temperature", eta_adjusted)
-gamma = 6 * math.pi * eta_adjusted * r # drag coefficient
+gamma = 6 * math.pi * eta_adjusted * r # drag coefficient 
 
-print("Calculated Stokes Radius", gamma)
+print("Calculated Stokes Radius", gamma.n, "+/-", gamma.s)
 
 resolution = uncertainties.ufloat(0.1204e-6, 0.003e-6) # camera resolution
 # bead = uncertainties.ufloat(2.0e-6, 0.1e-6) # bead size
@@ -172,40 +172,68 @@ xlabel = labels[i][0]
 ylabel = labels[i][1]
 title = titles[i]
 
-popt = bb.plot_fit(functions[i], time, s_total, time_unc, s_unc, init_guess=init_guess, font_size=font_size,
+popt, puncert = bb.plot_fit(functions[i], time, s_total, time_unc, s_unc, init_guess=init_guess, font_size=font_size,
             xlabel=xlabel, ylabel=ylabel, title=title, filename=filename.replace(".txt", ".pdf"))
+D_einstein = uncertainties.ufloat(popt[0], puncert[0]) / 2 # slope was 2D
+ 
  """
 '''
 1.0207769625639054e-12 +/- 1.2772905432650444e-14
 -8.08275213086696e-13 +/- 1.4848420162119995e-13
 R-squared: 0.9627819273532291
+
+No chi squared value 
+
 '''
+
+D_einstein = uncertainties.ufloat(1.0207769625639054e-12/2, 1.2772905432650444e-14/2) # divide by 2 to get D
+k_einstein = D_einstein * gamma / T # k = D * gamma / T
+print("K (Einstein): ", k_einstein.n, "+/-", k_einstein.s)
+
+# RAYLEIGH CURVE FITTING
 
 # DISTANCES HAS 119 DATA POINTS x 50 FILES = 5950 VALUES 
 
 counts, bin_edges = np.histogram(distances, bins=100, density=True)  # `density=True` normalizes the histogram
 bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2  # Compute bin centers
-print("Bin centers:", bin_centers)
-print("Counts:", counts)
+# print("Bin centers:", bin_centers)
+# print("Counts:", counts)
 # why are the counts so large? they go up to 1M and have fractional values. there are 5950 values 
 # EDIT: they're like that as density=True adjusts them so that the integral is 1
 
 # Fit the Gaussian model to the histogram data
 popt, pcov = curve_fit(rayleigh, bin_centers, counts, p0=[2.45e-16])  # Initial guess for D, based on calculated viscosity, known T, and k = 1.38 * 10^-23
 puncert = np.sqrt(np.diagonal(pcov))
-print(f"Fitted parameters")
-print(popt)
-print(puncert)
+D_rayleigh = uncertainties.ufloat(popt[0], puncert[0])
+k_rayleigh = D_rayleigh * gamma / T # k = D * gamma / T
+print("K (Rayleigh): ", k_rayleigh.n, "+/-", k_rayleigh.s)
+'''
+D = 4.968 * 10^-17 +/- 1.928 * 10^-17
 
-# says D = 4.968 * 10^-17. Not sure what pcov is, we need uncertainty values! 
+No R^2 or chi square 
+''' 
+# MAXIMUM LIKELIHOOD ESTIMATION 
+
+distances_squared = np.array(distances) ** 2
+estimated_twodt = np.sum(distances_squared) / (2 * len(distances))
+D_max_likelihood = estimated_twodt / (2 * step_size)
+k_max_likelihood = D_max_likelihood * gamma / T # k = D * gamma / T
+print("K (Maximum Likelihood): ", k_max_likelihood.n, "+/-", k_max_likelihood.s)
 
 '''
+D = 1.955839610787671e-13 +/- 1.1735037664726026e-14
+
+todo: use the black box, or find some other way of plotting the stuff on. 
+'''
+
+
+
 plt.hist(distances, bins=100, color='blue', edgecolor='black')  # Set bins to 20
 plt.xlabel('Value')
 plt.ylabel('Frequency')
 plt.title('Histogram Example')
 plt.show()
-'''
+
 
 """ 
 def pre_process(df):

@@ -145,6 +145,11 @@ def plot_fit(my_func, xdata, ydata, xerror=None, yerror=None, init_guess=None, f
     # every time you run this program, so rename the file if you
     # want to keep multiple files!
 
-    return popt # return the best fit parameters for further use
+    return popt, puncert # return the best fit parameters for further use
     
 
+'''
+Todo:
+add reduced chi square code somewhere, too. 
+
+'''
