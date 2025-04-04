@@ -14,7 +14,7 @@ r = uncertainties.ufloat(9.5e-7, 5e-8) # bead radius, divided by 2.  [m]
 eta = uncertainties.ufloat(0.001, 0.00005) # viscosity, g/(cm*s) started out at 0.01 +/- 0.0005 P, and 1 Pa*s = 10 P. So 1 Pa*s = 1000 centipoise 
 T = uncertainties.ufloat(296.5, 0.5) # temperature [K]
 eta_adjusted = eta * umath.pow(0.98, T - 293.15) # adjusted viscosity
-print("Viscosity adjusted for temperature", eta_adjusted)
+print("Viscosity adjusted for temperature", eta_adjusted.n, "+/-", eta_adjusted.s)
 gamma = 6 * math.pi * eta_adjusted * r # drag coefficient 
 
 print("Calculated Stokes Radius", gamma.n, "+/-", gamma.s)
@@ -145,7 +145,7 @@ s_unc[s_unc == 0] = 1e-14
 # print(distances)
 """ 
 
-guesses = [(4e-13, 0)]
+guesses = [(4.88e-13, 0)]
 
 titles = ["X-Squared vs, Time for Beads"]
 
@@ -175,6 +175,13 @@ title = titles[i]
 popt, puncert = bb.plot_fit(functions[i], time, s_total, time_unc, s_unc, init_guess=init_guess, font_size=font_size,
             xlabel=xlabel, ylabel=ylabel, title=title, filename=filename.replace(".txt", ".pdf"))
 D_einstein = uncertainties.ufloat(popt[0], puncert[0]) / 2 # slope was 2D
+
+# chi square calc
+
+chi_squared = np.sum(((s_total - linear(time, *popt))**2 / s_unc**2))
+print("Chi squared: ", chi_squared)
+reduced_chi_square = chi_squared / (len(s_total) - len(popt))
+print(")
  
  """
 '''
@@ -185,6 +192,7 @@ R-squared: 0.9627819273532291
 No chi squared value 
 
 '''
+
 
 D_einstein = uncertainties.ufloat(1.0207769625639054e-12/2, 1.2772905432650444e-14/2) # divide by 2 to get D
 k_einstein = D_einstein * gamma / T # k = D * gamma / T
@@ -202,7 +210,7 @@ bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2  # Compute bin centers
 # EDIT: they're like that as density=True adjusts them so that the integral is 1
 
 # Fit the Gaussian model to the histogram data
-popt, pcov = curve_fit(rayleigh, bin_centers, counts, p0=[2.45e-16])  # Initial guess for D, based on calculated viscosity, known T, and k = 1.38 * 10^-23
+popt, pcov = curve_fit(rayleigh, bin_centers, counts, p0=[2.44e-13])  # Initial guess for D, based on calculated viscosity, known T, and k = 1.38 * 10^-23
 puncert = np.sqrt(np.diagonal(pcov))
 D_rayleigh = uncertainties.ufloat(popt[0], puncert[0])
 k_rayleigh = D_rayleigh * gamma / T # k = D * gamma / T
@@ -210,8 +218,27 @@ print("K (Rayleigh): ", k_rayleigh.n, "+/-", k_rayleigh.s)
 '''
 D = 4.968 * 10^-17 +/- 1.928 * 10^-17
 
-No R^2 or chi square 
+No chi square 
 ''' 
+""" 
+invalid: no uncertainty 
+chi_squared = np.sum(((counts - rayleigh(bin_centers, *popt))**2 / counts))
+print("Chi squared: ", chi_squared)
+reduced_chi_squared = chi_squared / (len(counts) - len(popt))
+print("Reduced Chi squared: ", reduced_chi_squared) """
+
+residuals = counts - rayleigh(bin_centers, *popt)  # Calculate residuals
+y_mean = np.mean(counts)
+ss_total = np.sum((counts - y_mean) ** 2)
+ss_residual = np.sum(residuals ** 2)
+r_squared = 1 - (ss_residual / ss_total)
+# https://saturncloud.io/blog/quantifying-the-quality-of-curve-fit-using-python-scipy/
+
+print("R^2 = {:.3f}".format(r_squared))
+
+graph_1x_values = np.linspace(min(bin_edges), max(bin_edges), 1000)
+graph_1y_values = rayleigh(graph_1x_values, *popt)
+
 # MAXIMUM LIKELIHOOD ESTIMATION 
 
 distances_squared = np.array(distances) ** 2
@@ -226,12 +253,16 @@ D = 1.955839610787671e-13 +/- 1.1735037664726026e-14
 todo: use the black box, or find some other way of plotting the stuff on. 
 '''
 
+graph_2x_values = np.linspace(min(bin_edges), max(bin_edges), 1000)
+graph_2y_values = rayleigh(graph_2x_values, D_max_likelihood.n)
 
-
-plt.hist(distances, bins=100, color='blue', edgecolor='black')  # Set bins to 20
-plt.xlabel('Value')
-plt.ylabel('Frequency')
-plt.title('Histogram Example')
+plt.hist(distances, bins=100, density=True, color='blue', edgecolor='black')  # Set bins to 20
+plt.plot(graph_1x_values, graph_1y_values, color='red', label='Rayleigh Fit')
+plt.plot(graph_2x_values, graph_2y_values, color='green', label='Maximum Likelihood Fit')
+plt.xlabel('Distance (m)')
+plt.ylabel('Probability Density')
+plt.title('Histogram Of Step Distances With Rayleigh & Maximum Likelihood Fits')
+plt.legend()
 plt.show()
 
 
